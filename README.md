@@ -144,3 +144,11 @@ Do not provision a paying customer before the full failure test matrix (doc 08) 
 - **All cost figures are indicative placeholders** from training data with a May 2026 cutoff. IPv4, RAM, transit, and colo pricing move substantially. Replace every one with a real quote.
 - **Vendor pricing and licensing models change**, particularly billing platforms and RIR fee schedules. Verify directly.
 - **Version details drift.** Written against Proxmox VE 9.x (Debian 13) and Ceph 19.2 Squid; verify against current release notes and the `bpg/proxmox` provider changelog.
+
+## Ownership
+
+**Organization:** [SrokTech](https://sroktech.com)  
+**Repository:** `proxmox-ceph-vps-blueprint`  
+**Purpose:** VPS hosting provider architecture, implementation, operations, and business planning
+
+Prepared and maintained by **[SrokTech](https://sroktech.com)**.
