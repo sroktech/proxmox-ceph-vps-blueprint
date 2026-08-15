@@ -10,11 +10,11 @@ Everything needed to build and operate a Proxmox VE + Ceph VPS hosting provider:
 
 The financial model, run with indicative costs and conventional budget-VPS pricing, says:
 
-| 3-node cluster | Baseline | Viable config |
-|---|---|---|
-| Break-even as % of sellable capacity | **188%** | **43%** |
-| Monthly profit at 75% utilisation | −$3,632 | **+$4,484** |
-| Payback | never | 24 months |
+| 3-node cluster                       | Baseline | Viable config |
+| ------------------------------------ | -------- | ------------- |
+| Break-even as % of sellable capacity | **188%** | **43%**       |
+| Monthly profit at 75% utilisation    | −$3,632  | **+$4,484**   |
+| Payback                              | never    | 24 months     |
 
 **A 3-node cluster at budget-VPS pricing cannot break even** — break-even needs 222 VMs and it can only sell 118. Even filled completely it loses money.
 
@@ -26,55 +26,80 @@ The cause is structural: roughly $4,400/month of fixed costs (two transits, cros
 
 ## Repository layout
 
-```
+```text
 ├── docs/                 21 documents, read in numbered order
 ├── ansible/              Host configuration: roles, inventory, playbooks
 ├── packer/               Ubuntu 24.04, Debian 13, Rocky 10 templates
 ├── terraform/            Platform-level resources (NOT customer VMs)
 ├── ci/                   GitLab pipeline + validation scripts
+├── mermaid_init.py       Mermaid initialization directive utility
 ├── VPS-Financial-Model.xlsx
 ├── .sops.yaml            Secret encryption rules
 └── .gitlab-ci.yml
 ```
 
+## Documentation tooling
+
+`mermaid_init.py` applies the standard Mermaid initialization directive to all Mermaid code blocks under `docs/`.
+
+Check without modifying files:
+
+```bash
+python3 mermaid_init.py docs --check
+```
+
+Apply the directive:
+
+```bash
+python3 mermaid_init.py docs
+```
+
+The script is idempotent, so running it multiple times does not modify already-configured Mermaid blocks.
+
+---
+
 ## Reading order
 
 ### Business foundation — start in week 1
-| # | Document | Covers |
-|---|---|---|
-| 01 | `01-executive-architecture.md` | Four-layer architecture, dependency chains, relationship map of what breaks what |
-| 02 | `02-phase0-business-foundation.md` | Entity, banking, tax, payments, accounting, AUP/ToS/SLA/Privacy, compliance |
-| 03 | `03-phase1-network-addressing.md` | LIR, ASN, IPv6, IPv4, RPKI, IRR, BGP, transit, IXP, DDoS procurement |
-| 04 | `04-phase2-hardware.md` | Sizing formulas, CPU/RAM/storage/switch selection, spares, growth models |
+
+| #  | Document                           | Covers                                                                           |
+| -- | ---------------------------------- | -------------------------------------------------------------------------------- |
+| 01 | `01-executive-architecture.md`     | Four-layer architecture, dependency chains, relationship map of what breaks what |
+| 02 | `02-phase0-business-foundation.md` | Entity, banking, tax, payments, accounting, AUP/ToS/SLA/Privacy, compliance      |
+| 03 | `03-phase1-network-addressing.md`  | LIR, ASN, IPv6, IPv4, RPKI, IRR, BGP, transit, IXP, DDoS procurement             |
+| 04 | `04-phase2-hardware.md`            | Sizing formulas, CPU/RAM/storage/switch selection, spares, growth models         |
 
 ### Technical implementation — Phases 3 and 4
-| # | Document | Covers |
-|---|---|---|
+
+| #  | Document                            | Covers                                                                          |
+| -- | ----------------------------------- | ------------------------------------------------------------------------------- |
 | 05 | `05-phase3-cluster-architecture.md` | Architecture + network diagrams, VLAN plan, capacity math, monitoring placement |
-| 06 | `06-phase3-cluster-build.md` | PVE install, Ansible automation, cluster creation, Corosync |
-| 07 | `07-phase3-ceph-and-sdn.md` | Ceph deployment, EVPN SDN, tenant isolation |
-| 08 | `08-phase3-failure-testing.md` | T1–T16 failure tests with expected behaviour and success criteria |
-| 09 | `09-phase4-images-and-iac.md` | Packer, image CI/CD, Terraform design, GitOps and secrets |
-| 10 | `10-phase3-4-build-order.md` | Week-by-week roadmap, milestones, critical path |
-| 11 | `11-phase3-4-readiness.md` | Production readiness + go-live checklists |
+| 06 | `06-phase3-cluster-build.md`        | PVE install, Ansible automation, cluster creation, Corosync                     |
+| 07 | `07-phase3-ceph-and-sdn.md`         | Ceph deployment, EVPN SDN, tenant isolation                                     |
+| 08 | `08-phase3-failure-testing.md`      | T1–T16 failure tests with expected behaviour and success criteria               |
+| 09 | `09-phase4-images-and-iac.md`       | Packer, image CI/CD, Terraform design, GitOps and secrets                       |
+| 10 | `10-phase3-4-build-order.md`        | Week-by-week roadmap, milestones, critical path                                 |
+| 11 | `11-phase3-4-readiness.md`          | Production readiness + go-live checklists                                       |
 
 ### Platform, operations and launch
-| # | Document | Covers |
-|---|---|---|
-| 12 | `12-phase5-control-plane-billing.md` | WHMCS vs HostBill vs Blesta vs custom, with a recommendation |
-| 13 | `13-phase6-abuse-fraud-security.md` | Anti-spam, anti-DDoS, fraud prevention, abuse workflow, hardening |
-| 14 | `14-phase7-monitoring-backup.md` | Prometheus, Grafana, Loki, PBS, alerting, escalation, DR |
-| 15 | `15-phase8-validation-testing.md` | UAT, security, performance, failover checklists with pass/fail criteria |
-| 16 | `16-phase9-10-launch-and-growth.md` | Soft launch, onboarding, then scaling Ceph/Proxmox/network/team |
+
+| #  | Document                             | Covers                                                                  |
+| -- | ------------------------------------ | ----------------------------------------------------------------------- |
+| 12 | `12-phase5-control-plane-billing.md` | WHMCS vs HostBill vs Blesta vs custom, with a recommendation            |
+| 13 | `13-phase6-abuse-fraud-security.md`  | Anti-spam, anti-DDoS, fraud prevention, abuse workflow, hardening       |
+| 14 | `14-phase7-monitoring-backup.md`     | Prometheus, Grafana, Loki, PBS, alerting, escalation, DR                |
+| 15 | `15-phase8-validation-testing.md`    | UAT, security, performance, failover checklists with pass/fail criteria |
+| 16 | `16-phase9-10-launch-and-growth.md`  | Soft launch, onboarding, then scaling Ceph/Proxmox/network/team         |
 
 ### Cross-cutting
-| # | Document | Covers |
-|---|---|---|
-| 17 | `17-operations-playbook.md` | Eight step-by-step runbooks for real failures |
-| 18 | `18-org-and-hiring.md` | Year 1/2/3 team structure, hiring sequence, RACI, anti-patterns |
-| 19 | `19-financial-model.md` | How to use the workbook, and what it revealed |
-| 20 | `20-timeline.md` | 30-day, 90-day, 6-month, 12-month roadmaps |
-| 21 | `21-master-checklist.md` | Complete progress tracking, zero → production |
+
+| #  | Document                    | Covers                                                          |
+| -- | --------------------------- | --------------------------------------------------------------- |
+| 17 | `17-operations-playbook.md` | Eight step-by-step runbooks for real failures                   |
+| 18 | `18-org-and-hiring.md`      | Year 1/2/3 team structure, hiring sequence, RACI, anti-patterns |
+| 19 | `19-financial-model.md`     | How to use the workbook, and what it revealed                   |
+| 20 | `20-timeline.md`            | 30-day, 90-day, 6-month, 12-month roadmaps                      |
+| 21 | `21-master-checklist.md`    | Complete progress tracking, zero → production                   |
 
 ---
 
@@ -140,15 +165,17 @@ Do not provision a paying customer before the full failure test matrix (doc 08) 
 
 ## Caveats
 
-- **Not legal, tax, or financial advice.** I am not a lawyer, accountant, or licensed financial advisor. Requirements vary enormously by jurisdiction. Use these documents to brief professionals efficiently, not to replace them.
-- **All cost figures are indicative placeholders** from training data with a May 2026 cutoff. IPv4, RAM, transit, and colo pricing move substantially. Replace every one with a real quote.
-- **Vendor pricing and licensing models change**, particularly billing platforms and RIR fee schedules. Verify directly.
-- **Version details drift.** Written against Proxmox VE 9.x (Debian 13) and Ceph 19.2 Squid; verify against current release notes and the `bpg/proxmox` provider changelog.
+* **Not legal, tax, or financial advice.** I am not a lawyer, accountant, or licensed financial advisor. Requirements vary enormously by jurisdiction. Use these documents to brief professionals efficiently, not to replace them.
+* **All cost figures are indicative placeholders** from training data with a May 2026 cutoff. IPv4, RAM, transit, and colo pricing move substantially. Replace every one with a real quote.
+* **Vendor pricing and licensing models change**, particularly billing platforms and RIR fee schedules. Verify directly.
+* **Version details drift.** Written against Proxmox VE 9.x (Debian 13) and Ceph 19.2 Squid; verify against current release notes and the `bpg/proxmox` provider changelog.
+
+---
 
 ## Ownership
 
-**Organization:** [SrokTech](https://sroktech.com)  
-**Repository:** `proxmox-ceph-vps-blueprint`  
+**Organization:** [SrokTech](https://sroktech.com)
+**Repository:** `proxmox-ceph-vps-blueprint`
 **Purpose:** VPS hosting provider architecture, implementation, operations, and business planning
 
 Prepared and maintained by **[SrokTech](https://sroktech.com)**.
