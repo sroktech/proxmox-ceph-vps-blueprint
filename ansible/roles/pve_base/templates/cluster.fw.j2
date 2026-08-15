@@ -1,0 +1,31 @@
+# Managed by Ansible. Datacenter-level firewall.
+# macfilter blocks guests forging their source MAC.
+[OPTIONS]
+enable: {{ 1 if pve_firewall_enable else 0 }}
+policy_in: DROP
+policy_out: ACCEPT
+macfilter: 1
+log_level_in: info
+
+[ALIASES]
+vpn_net {{ net_vpn }}
+mgmt_net {{ net_mgmt }}
+ceph_pub {{ net_ceph_public }}
+ceph_cl {{ net_ceph_cluster }}
+coro0 {{ net_corosync_ring0 }}
+coro1 {{ net_corosync_ring1 }}
+
+[RULES]
+IN ACCEPT -source +vpn_net -p tcp -dport 8006 -log nolog
+IN ACCEPT -source +vpn_net -p tcp -dport 22 -log nolog
+IN ACCEPT -source +mgmt_net -p tcp -dport 22 -log nolog
+IN ACCEPT -source +mgmt_net -p tcp -dport 8006 -log nolog
+IN ACCEPT -source +mgmt_net -p tcp -dport 5900:5999 -log nolog
+IN ACCEPT -source +mgmt_net -p tcp -dport 3128 -log nolog
+IN ACCEPT -source +mgmt_net -p tcp -dport {{ node_exporter_port }} -log nolog
+IN ACCEPT -source +mgmt_net -p tcp -dport 9283 -log nolog
+IN ACCEPT -source +coro0 -p udp -dport 5405:5412 -log nolog
+IN ACCEPT -source +coro1 -p udp -dport 5405:5412 -log nolog
+IN ACCEPT -source +ceph_pub -log nolog
+IN ACCEPT -source +ceph_cl -log nolog
+IN ACCEPT -p icmp -log nolog

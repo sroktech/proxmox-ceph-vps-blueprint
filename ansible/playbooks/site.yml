@@ -1,0 +1,15 @@
+---
+- name: Converge Proxmox nodes
+  hosts: pve_nodes
+  gather_facts: true
+  roles:
+    - role: common
+      tags: [common]
+    - role: ntp
+      tags: [ntp]
+    - role: ssh_hardening
+      tags: [ssh, security]
+    - role: pve_base
+      tags: [pve]
+    - role: monitoring
+      tags: [monitoring]

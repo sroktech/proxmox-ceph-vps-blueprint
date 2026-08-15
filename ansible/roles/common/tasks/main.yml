@@ -1,0 +1,54 @@
+---
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ (pve_base_packages | default([])) + (common_packages | default([])) }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Apply sysctl hardening and tuning
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-pve-managed.conf
+    reload: true
+    state: present
+  loop: "{{ pve_sysctl | dict2items }}"
+
+- name: Cap ZFS ARC
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/zfs.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible. Uncapped ARC competes with Ceph OSD memory.
+      options zfs zfs_arc_max={{ zfs_arc_max_bytes }}
+      options zfs zfs_arc_min={{ zfs_arc_min_bytes }}
+  notify: update initramfs
+
+- name: Enable SMART monitoring
+  ansible.builtin.service:
+    name: smartmontools
+    state: started
+    enabled: true
+
+- name: Enable LLDP for switch-port discovery
+  ansible.builtin.service:
+    name: lldpd
+    state: started
+    enabled: true
+
+- name: Restrict unattended-upgrades to security origins only
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    mode: "0644"
+    content: |
+      // Managed by Ansible. PVE and Ceph upgrades stay MANUAL and scheduled.
+      Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+      };
+      Unattended-Upgrade::Automatic-Reboot "false";
+      Unattended-Upgrade::Remove-Unused-Dependencies "false";

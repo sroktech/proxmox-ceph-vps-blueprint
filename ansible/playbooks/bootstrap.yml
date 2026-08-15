@@ -1,0 +1,20 @@
+---
+# First touch on a freshly installed node, before it joins the cluster.
+# Run with: ansible-playbook playbooks/bootstrap.yml --limit pve-03
+- name: Bootstrap a fresh Proxmox node
+  hosts: pve_nodes
+  gather_facts: true
+  serial: 1
+  roles:
+    - role: common
+    - role: ntp
+    - role: ssh_hardening
+    - role: pve_base
+  post_tasks:
+    - name: Remind operator of the manual cluster join step
+      ansible.builtin.debug:
+        msg: >-
+          Node prepared. Join the cluster manually:
+          pvecm add {{ hostvars[groups['pve_nodes'][0]].corosync_ring0_addr }}
+          --link0 address={{ corosync_ring0_addr }},priority=100
+          --link1 address={{ corosync_ring1_addr }},priority=50

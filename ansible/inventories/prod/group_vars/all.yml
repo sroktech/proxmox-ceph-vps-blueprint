@@ -1,0 +1,56 @@
+---
+# Non-secret globals. Secrets live in all.sops.yml (SOPS-encrypted).
+
+ansible_user: root
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519_pvps
+
+org_name: "Example Hosting"
+dns_domain: dc1.example.net
+
+# --- Networks (single source of truth; mirror docs/address-plan.yml) ---
+net_mgmt:            "10.10.10.0/24"
+net_corosync_ring0:  "10.10.20.0/24"
+net_corosync_ring1:  "10.10.21.0/24"
+net_ceph_public:     "10.10.30.0/24"
+net_ceph_cluster:    "10.10.31.0/24"
+net_vxlan_underlay:  "10.10.40.0/24"
+net_ipmi:            "10.10.99.0/24"
+net_vpn:             "10.99.0.0/24"
+
+# --- NTP ---
+ntp_servers:
+  - 0.debian.pool.ntp.org
+  - 1.debian.pool.ntp.org
+  - 2.debian.pool.ntp.org
+  - 3.debian.pool.ntp.org
+ntp_allow_networks: []
+
+# --- SSH ---
+ssh_permit_root_login: "prohibit-password"
+ssh_password_authentication: "no"
+ssh_max_auth_tries: 3
+ssh_authorized_keys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA_REPLACE_ME ops@example"
+
+# --- Monitoring ---
+node_exporter_version: "1.8.2"
+node_exporter_port: 9100
+prometheus_scrape_networks:
+  - "10.10.10.0/24"
+
+# --- ZFS ---
+zfs_arc_max_bytes: 4294967296   # 4 GiB
+zfs_arc_min_bytes: 1073741824   # 1 GiB
+
+# --- Ceph ---
+ceph_release: squid
+ceph_osd_memory_target: 6442450944   # 6 GiB
+ceph_pool_name: vm-disks
+ceph_pool_size: 3
+ceph_pool_min_size: 2
+
+# --- Safety gates. Never default these to true. ---
+allow_cluster_bootstrap: false
+allow_ceph_bootstrap: false
+allow_osd_create: false
+allow_osd_destroy: false

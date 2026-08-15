@@ -1,0 +1,236 @@
+---
+stages: [lint, plan, build, validate, publish, apply, verify, prune]
+
+variables:
+  BUILD_TIMESTAMP: "${CI_PIPELINE_CREATED_AT}"
+  GIT_SHA: "${CI_COMMIT_SHORT_SHA}"
+  TF_ROOT: terraform/envs/prod
+  TF_STATE_NAME: prod
+
+default:
+  # Use a DEDICATED runner for infrastructure. Never a shared runner: it would
+  # have network access to your hypervisors and hold your age key.
+  tags: [infra-runner]
+  interruptible: true
+
+.sops_setup: &sops_setup
+  - echo "$SOPS_AGE_KEY" > /tmp/age.key
+  - chmod 600 /tmp/age.key
+  - export SOPS_AGE_KEY_FILE=/tmp/age.key
+
+.sops_teardown: &sops_teardown
+  - shred -u /tmp/age.key 2>/dev/null || rm -f /tmp/age.key
+
+# ---------------------------------------------------------------- lint
+secrets:scan:
+  stage: lint
+  image: zricethezav/gitleaks:latest
+  script:
+    - gitleaks detect --source . --verbose --redact --no-git
+    - gitleaks detect --source . --verbose --redact
+  allow_failure: false
+
+ansible:lint:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir ansible-core ansible-lint yamllint
+    - ansible-galaxy collection install -r ansible/requirements.yml
+  script:
+    - yamllint ansible/
+    - cd ansible && ansible-lint
+
+packer:validate:
+  stage: lint
+  image: hashicorp/packer:latest
+  before_script: *sops_setup
+  script:
+    - cd packer
+    - packer init .
+    - packer fmt -check -recursive .
+    - export PKR_VAR_proxmox_token=$(sops -d --extract '["pve_packer_token"]' ../secrets.sops.yaml)
+    - export PKR_VAR_build_timestamp=$(date -u +%Y%m%d)
+    - export PKR_VAR_git_sha="${GIT_SHA}"
+    - export PKR_VAR_build_ssh_public_key="${PACKER_BUILD_PUBKEY}"
+    - for d in ubuntu-2404 debian-13 rocky-10; do
+        packer validate -var-file=common.pkrvars.hcl "$d/";
+      done
+  after_script: *sops_teardown
+
+terraform:validate:
+  stage: lint
+  image: hashicorp/terraform:latest
+  script:
+    - cd ${TF_ROOT}
+    - terraform fmt -check -recursive ../..
+    - terraform init -backend=false
+    - terraform validate
+
+# ---------------------------------------------------------------- plan
+terraform:plan:
+  stage: plan
+  image: hashicorp/terraform:latest
+  before_script: *sops_setup
+  script:
+    - cd ${TF_ROOT}
+    - export TF_VAR_pve_api_token=$(sops -d --extract '["pve_api_token"]' ../../../secrets.sops.yaml)
+    - terraform init
+      -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}"
+      -backend-config="lock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock"
+      -backend-config="unlock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock"
+      -backend-config="username=gitlab-ci-token"
+      -backend-config="password=${CI_JOB_TOKEN}"
+      -backend-config="lock_method=POST"
+      -backend-config="unlock_method=DELETE"
+      -backend-config="retry_wait_min=5"
+    - terraform plan -out=plan.cache
+    - terraform show -no-color plan.cache > plan.txt
+  after_script: *sops_teardown
+  artifacts:
+    paths: [${TF_ROOT}/plan.cache, ${TF_ROOT}/plan.txt]
+    expire_in: 7 days
+    # Posts the plan diff into the MR widget. Reviewing the plan IS the review.
+    reports:
+      terraform: ${TF_ROOT}/plan.json
+
+ansible:check:
+  stage: plan
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir ansible-core
+    - ansible-galaxy collection install -r ansible/requirements.yml
+    - *sops_setup
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/site.yml --check --diff
+  after_script: *sops_teardown
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# ---------------------------------------------------------------- build
+.packer_build: &packer_build
+  stage: build
+  image: hashicorp/packer:latest
+  before_script: *sops_setup
+  script:
+    - cd packer
+    - packer init .
+    - export PKR_VAR_proxmox_token=$(sops -d --extract '["pve_packer_token"]' ../secrets.sops.yaml)
+    - export PKR_VAR_build_timestamp=$(date -u +%Y%m%d)
+    - export PKR_VAR_git_sha="${GIT_SHA}"
+    - export PKR_VAR_build_ssh_public_key="${PACKER_BUILD_PUBKEY}"
+    - packer build -var-file=common.pkrvars.hcl "${OS_DIR}/"
+  after_script: *sops_teardown
+  artifacts:
+    paths: ["packer/manifest-*.json"]
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $REBUILD_ALL == "true"
+
+build:ubuntu-2404:
+  <<: *packer_build
+  variables: { OS_DIR: ubuntu-2404 }
+
+build:debian-13:
+  <<: *packer_build
+  variables: { OS_DIR: debian-13 }
+
+build:rocky-10:
+  <<: *packer_build
+  variables: { OS_DIR: rocky-10 }
+
+# ---------------------------------------------------------------- validate
+# The stage people skip. It is what stops a broken image reaching customers.
+validate:images:
+  stage: validate
+  image: debian:13-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl jq openssh-client
+    - *sops_setup
+  script:
+    - export PVE_TOKEN=$(sops -d --extract '["pve_ci_token"]' secrets.sops.yaml)
+    - ci/scripts/validate-image.sh
+  after_script: *sops_teardown
+  artifacts:
+    when: always
+    paths: [validation-report.txt]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ---------------------------------------------------------------- publish
+publish:templates:
+  stage: publish
+  image: debian:13-slim
+  script:
+    - ci/scripts/publish-templates.sh
+    # Deliberately does NOT flip the panel's template pointer.
+    # A human provisions one real VPS from each new image, then promotes.
+  artifacts:
+    paths: [template-manifest.json]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+
+# ---------------------------------------------------------------- apply
+terraform:apply:
+  stage: apply
+  image: hashicorp/terraform:latest
+  before_script: *sops_setup
+  script:
+    - cd ${TF_ROOT}
+    - export TF_VAR_pve_api_token=$(sops -d --extract '["pve_api_token"]' ../../../secrets.sops.yaml)
+    - terraform init
+      -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}"
+      -backend-config="username=gitlab-ci-token"
+      -backend-config="password=${CI_JOB_TOKEN}"
+    - terraform apply -input=false plan.cache
+  after_script: *sops_teardown
+  dependencies: [terraform:plan]
+  # MANUAL, always. Automated apply-on-merge means a Friday-night merge
+  # changes production.
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  environment:
+    name: production
+
+# ---------------------------------------------------------------- verify
+verify:cluster-health:
+  stage: verify
+  image: debian:13-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl jq openssh-client
+  script:
+    - ci/scripts/verify-health.sh
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# Nightly drift detection: config in Git must match reality.
+drift:detect:
+  stage: verify
+  image: hashicorp/terraform:latest
+  before_script: *sops_setup
+  script:
+    - cd ${TF_ROOT}
+    - export TF_VAR_pve_api_token=$(sops -d --extract '["pve_api_token"]' ../../../secrets.sops.yaml)
+    - terraform init
+      -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}"
+      -backend-config="username=gitlab-ci-token"
+      -backend-config="password=${CI_JOB_TOKEN}"
+    - terraform plan -detailed-exitcode -out=drift.cache || EXIT=$?
+    - if [ "${EXIT:-0}" = "2" ]; then echo "DRIFT DETECTED"; terraform show -no-color drift.cache; exit 1; fi
+  after_script: *sops_teardown
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $DRIFT_CHECK == "true"
+
+# ---------------------------------------------------------------- prune
+prune:old-templates:
+  stage: prune
+  image: debian:13-slim
+  script:
+    # Keep the last three builds per OS so rollback is always possible.
+    - ci/scripts/prune-templates.sh --keep 3
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual

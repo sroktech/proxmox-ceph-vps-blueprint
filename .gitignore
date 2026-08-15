@@ -1,0 +1,34 @@
+# Decrypted secrets must never be committed
+*.decrypted.*
+*.dec.yaml
+*.dec.yml
+secrets.plain.*
+
+# age keys
+*.agekey
+keys.txt
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+plan.cache
+drift.cache
+crash.log
+override.tf
+override.tf.json
+
+# Packer
+packer_cache/
+*.pkrvars.hcl.local
+manifest-*.json
+
+# Ansible
+*.retry
+.vault_pass
+
+# Local
+.env
+.DS_Store
+*.swp

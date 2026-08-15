@@ -1,0 +1,9 @@
+---
+# Placeholder. Cluster/Ceph/SDN bootstrap is deliberately NOT fully automated:
+# these operations are one-shot and destructive if repeated incorrectly.
+# See docs/02-phase3-cluster-build.md and docs/03-ceph-and-sdn.md for the
+# guarded procedures. Use this role for post-bootstrap CONVERGENCE only
+# (config file management, tuning values, module enablement).
+- name: Placeholder
+  ansible.builtin.debug:
+    msg: "Role pve_ceph: add convergence tasks here, not bootstrap tasks."

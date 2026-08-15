@@ -1,0 +1,5 @@
+---
+ssh_permit_root_login: "prohibit-password"
+ssh_password_authentication: "no"
+ssh_max_auth_tries: 3
+ssh_authorized_keys: []

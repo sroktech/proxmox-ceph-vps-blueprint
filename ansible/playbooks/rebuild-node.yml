@@ -1,0 +1,25 @@
+---
+# Disaster recovery: bring a reinstalled node back to full production config.
+# Usage: ansible-playbook playbooks/rebuild-node.yml --limit pve-02
+#
+# Manual steps still required (deliberately, they are destructive):
+#   1. pvecm delnode pve-02        (from a surviving node, BEFORE reinstall)
+#   2. Reinstall PVE with identical hostname and ZFS mirror layout
+#   3. Run this playbook
+#   4. pvecm add <ring0-addr-of-node-1> --link0 ... --link1 ...
+#   5. pveceph osd create for each device (allow_osd_create=true)
+- name: Rebuild a node from Git
+  hosts: pve_nodes
+  gather_facts: true
+  serial: 1
+  pre_tasks:
+    - name: Refuse to run against more than one host
+      ansible.builtin.assert:
+        that: ansible_play_hosts | length == 1
+        fail_msg: "Use --limit to target exactly one node."
+  roles:
+    - common
+    - ntp
+    - ssh_hardening
+    - pve_base
+    - monitoring

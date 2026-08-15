@@ -1,0 +1,39 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  network:
+    version: 2
+    ethernets:
+      any:
+        match:
+          name: "en*"
+        dhcp4: true
+        dhcp6: false
+  storage:
+    layout:
+      name: direct
+  identity:
+    hostname: packer-build
+    username: packerbuild
+    # Placeholder hash for the build user. Regenerate with:
+    #   mkpasswd -m sha-512
+    # This account and its key are removed in 99-cleanup.sh.
+    password: "$6$rounds=4096$REPLACE$THIS$HASH"
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys:
+      - "REPLACE_WITH_BUILD_SSH_PUBLIC_KEY"
+  packages:
+    - qemu-guest-agent
+    - cloud-init
+    - openssh-server
+  late-commands:
+    # Passwordless sudo for the build user only; removed in cleanup.
+    - echo 'packerbuild ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/packerbuild
+    - chmod 440 /target/etc/sudoers.d/packerbuild
+    - curtin in-target --target=/target -- systemctl enable qemu-guest-agent
+  shutdown: reboot

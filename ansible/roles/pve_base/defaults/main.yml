@@ -1,0 +1,4 @@
+---
+pve_enterprise_repo: true
+pve_suite: trixie
+pve_firewall_enable: true

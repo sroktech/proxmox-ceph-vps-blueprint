@@ -1,0 +1,44 @@
+---
+# Cluster bootstrap is a ONE-SHOT operation, gated behind allow_cluster_bootstrap.
+# Ansible prepares prerequisites; the actual pvecm create/add is deliberately
+# guarded because it is not idempotent and a mistake is destructive.
+- name: Prepare and (optionally) bootstrap the Corosync cluster
+  hosts: pve_nodes
+  gather_facts: true
+  tasks:
+    - name: Ensure every node resolves every peer by short name
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^\s*{{ hostvars[item].ansible_host }}\s'
+        line: "{{ hostvars[item].ansible_host }} {{ item }}.{{ dns_domain }} {{ item }}"
+        state: present
+      loop: "{{ groups['pve_nodes'] }}"
+
+    - name: Verify Corosync ring reachability before any join
+      ansible.builtin.command:
+        cmd: "ping -c 2 -W 2 {{ hostvars[item].corosync_ring0_addr }}"
+      loop: "{{ groups['pve_nodes'] }}"
+      when: item != inventory_hostname
+      changed_when: false
+
+    - name: Check current cluster membership
+      ansible.builtin.command: pvecm status
+      register: pvecm_out
+      failed_when: false
+      changed_when: false
+
+    - name: Report membership
+      ansible.builtin.debug:
+        msg: "{{ 'Already in a cluster' if pvecm_out.rc == 0 else 'Not clustered yet' }}"
+
+    - name: Create cluster on the first node
+      ansible.builtin.command:
+        cmd: >-
+          pvecm create {{ pve_cluster_name }}
+          --link0 address={{ corosync_ring0_addr }},priority=100
+          --link1 address={{ corosync_ring1_addr }},priority=50
+      when:
+        - allow_cluster_bootstrap | bool
+        - inventory_hostname == groups['pve_nodes'][0]
+        - pvecm_out.rc != 0
+      run_once: false

@@ -1,0 +1,36 @@
+---
+pve_cluster_name: pvps-dc1
+pve_enterprise_repo: true
+pve_suite: trixie          # match your PVE release's Debian base
+
+pve_base_packages:
+  - chrony
+  - curl
+  - ethtool
+  - fio
+  - htop
+  - ipmitool
+  - jq
+  - lldpd
+  - mtr-tiny
+  - nvme-cli
+  - smartmontools
+  - sysstat
+  - tcpdump
+  - unattended-upgrades
+  - vim
+
+pve_sysctl:
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv4.conf.all.log_martians: 1
+  net.ipv6.conf.all.accept_redirects: 0
+  net.ipv6.conf.all.accept_ra: 0
+  kernel.dmesg_restrict: 1
+  kernel.kptr_restrict: 2
+  fs.protected_hardlinks: 1
+  fs.protected_symlinks: 1
+  net.netfilter.nf_conntrack_max: 1048576
+  vm.swappiness: 10

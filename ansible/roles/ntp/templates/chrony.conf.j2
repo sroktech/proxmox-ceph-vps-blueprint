@@ -1,0 +1,16 @@
+# Managed by Ansible. Corosync requires tight time sync across nodes.
+{% for s in ntp_servers %}
+pool {{ s }} iburst maxsources 4
+{% endfor %}
+
+keyfile /etc/chrony/chrony.keys
+driftfile /var/lib/chrony/chrony.drift
+logdir /var/log/chrony
+maxupdateskew 100.0
+rtcsync
+makestep 1.0 3
+leapsectz right/UTC
+
+{% for n in ntp_allow_networks %}
+allow {{ n }}
+{% endfor %}

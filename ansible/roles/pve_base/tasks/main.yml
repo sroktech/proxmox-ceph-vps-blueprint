@@ -1,0 +1,64 @@
+---
+- name: Remove no-subscription and test repositories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/pve-no-subscription.list
+    - /etc/apt/sources.list.d/pve-no-subscription.sources
+    - /etc/apt/sources.list.d/ceph-no-subscription.list
+    - /etc/apt/sources.list.d/pvetest.list
+  when: pve_enterprise_repo | bool
+  notify: apt update
+
+- name: Configure PVE enterprise repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/pve-enterprise.sources
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: https://enterprise.proxmox.com/debian/pve
+      Suites: {{ pve_suite }}
+      Components: pve-enterprise
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+  when: pve_enterprise_repo | bool
+  notify: apt update
+
+- name: Configure Ceph enterprise repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/ceph.sources
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: https://enterprise.proxmox.com/debian/ceph-{{ ceph_release }}
+      Suites: {{ pve_suite }}
+      Components: enterprise
+      Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+  when: pve_enterprise_repo | bool
+  notify: apt update
+
+- name: Deploy datacenter firewall configuration
+  ansible.builtin.template:
+    src: cluster.fw.j2
+    dest: /etc/pve/firewall/cluster.fw
+    mode: "0640"
+  # /etc/pve is a cluster filesystem: write from one node only.
+  run_once: true
+  notify: restart pve-firewall
+
+- name: Ensure pve-firewall is running
+  ansible.builtin.service:
+    name: pve-firewall
+    state: started
+    enabled: true
+
+- name: Report subscription status
+  ansible.builtin.command: pvesubscription get
+  register: pve_sub
+  changed_when: false
+  failed_when: false
+
+- name: Warn if subscription is not active
+  ansible.builtin.debug:
+    msg: "WARNING: subscription not active on {{ inventory_hostname }} — enterprise repo will 401."
+  when: "'active' not in (pve_sub.stdout | default(''))"
