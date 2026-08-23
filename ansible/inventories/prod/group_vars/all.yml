@@ -7,7 +7,7 @@ ansible_ssh_private_key_file: ~/.ssh/id_ed25519_pvps
 org_name: "Example Hosting"
 dns_domain: dc1.example.net
 
-# --- Networks (single source of truth; mirror docs/address-plan.yml) ---
+# --- Networks (single source of truth; mirror docs/03-phase1-network-addressing.md) ---
 net_mgmt:            "10.10.10.0/24"
 net_corosync_ring0:  "10.10.20.0/24"
 net_corosync_ring1:  "10.10.21.0/24"

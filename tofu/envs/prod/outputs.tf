@@ -1,6 +1,6 @@
 output "pools" {
   value       = module.pools.pool_ids
-  description = "Resource pools managed by Terraform"
+  description = "Resource pools managed by OpenTofu"
 }
 
 output "snippets" {

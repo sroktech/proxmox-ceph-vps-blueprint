@@ -1,5 +1,8 @@
 terraform {
-  required_version = ">= 1.9"
+  # This is OpenTofu, not Terraform. The `terraform {}` block name is kept
+  # unchanged by OpenTofu for drop-in compatibility with the HCL language.
+  # required_version below constrains the OpenTofu CLI version.
+  required_version = ">= 1.8"
 
   required_providers {
     proxmox = {

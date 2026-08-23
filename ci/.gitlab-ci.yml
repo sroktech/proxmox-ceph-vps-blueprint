@@ -4,7 +4,7 @@ stages: [lint, plan, build, validate, publish, apply, verify, prune]
 variables:
   BUILD_TIMESTAMP: "${CI_PIPELINE_CREATED_AT}"
   GIT_SHA: "${CI_COMMIT_SHORT_SHA}"
-  TF_ROOT: terraform/envs/prod
+  TOFU_ROOT: tofu/envs/prod
   TF_STATE_NAME: prod
 
 default:
@@ -57,24 +57,24 @@ packer:validate:
       done
   after_script: *sops_teardown
 
-terraform:validate:
+tofu:validate:
   stage: lint
-  image: hashicorp/terraform:latest
+  image: ghcr.io/opentofu/opentofu:latest
   script:
-    - cd ${TF_ROOT}
-    - terraform fmt -check -recursive ../..
-    - terraform init -backend=false
-    - terraform validate
+    - cd ${TOFU_ROOT}
+    - tofu fmt -check -recursive ../..
+    - tofu init -backend=false
+    - tofu validate
 
 # ---------------------------------------------------------------- plan
-terraform:plan:
+tofu:plan:
   stage: plan
-  image: hashicorp/terraform:latest
+  image: ghcr.io/opentofu/opentofu:latest
   before_script: *sops_setup
   script:
-    - cd ${TF_ROOT}
+    - cd ${TOFU_ROOT}
     - export TF_VAR_pve_api_token=$(sops -d --extract '["pve_api_token"]' ../../../secrets.sops.yaml)
-    - terraform init
+    - tofu init
       -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}"
       -backend-config="lock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock"
       -backend-config="unlock_address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}/lock"
@@ -83,15 +83,18 @@ terraform:plan:
       -backend-config="lock_method=POST"
       -backend-config="unlock_method=DELETE"
       -backend-config="retry_wait_min=5"
-    - terraform plan -out=plan.cache
-    - terraform show -no-color plan.cache > plan.txt
+    - tofu plan -out=plan.cache
+    - tofu show -no-color plan.cache > plan.txt
+    - tofu show -json plan.cache > plan.json
   after_script: *sops_teardown
   artifacts:
-    paths: [${TF_ROOT}/plan.cache, ${TF_ROOT}/plan.txt]
+    paths: ["${TOFU_ROOT}/plan.cache", "${TOFU_ROOT}/plan.txt", "${TOFU_ROOT}/plan.json"]
     expire_in: 7 days
-    # Posts the plan diff into the MR widget. Reviewing the plan IS the review.
+    # Posts the plan diff into the MR widget. GitLab's "terraform" report type
+    # is the fixed keyword name for this feature and also accepts OpenTofu's
+    # plan JSON, since the two tools share the same plan schema.
     reports:
-      terraform: ${TF_ROOT}/plan.json
+      terraform: ${TOFU_ROOT}/plan.json
 
 ansible:check:
   stage: plan
@@ -173,20 +176,20 @@ publish:templates:
       when: manual
 
 # ---------------------------------------------------------------- apply
-terraform:apply:
+tofu:apply:
   stage: apply
-  image: hashicorp/terraform:latest
+  image: ghcr.io/opentofu/opentofu:latest
   before_script: *sops_setup
   script:
-    - cd ${TF_ROOT}
+    - cd ${TOFU_ROOT}
     - export TF_VAR_pve_api_token=$(sops -d --extract '["pve_api_token"]' ../../../secrets.sops.yaml)
-    - terraform init
+    - tofu init
       -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}"
       -backend-config="username=gitlab-ci-token"
       -backend-config="password=${CI_JOB_TOKEN}"
-    - terraform apply -input=false plan.cache
+    - tofu apply -input=false plan.cache
   after_script: *sops_teardown
-  dependencies: [terraform:plan]
+  dependencies: ["tofu:plan"]
   # MANUAL, always. Automated apply-on-merge means a Friday-night merge
   # changes production.
   when: manual
@@ -209,17 +212,17 @@ verify:cluster-health:
 # Nightly drift detection: config in Git must match reality.
 drift:detect:
   stage: verify
-  image: hashicorp/terraform:latest
+  image: ghcr.io/opentofu/opentofu:latest
   before_script: *sops_setup
   script:
-    - cd ${TF_ROOT}
+    - cd ${TOFU_ROOT}
     - export TF_VAR_pve_api_token=$(sops -d --extract '["pve_api_token"]' ../../../secrets.sops.yaml)
-    - terraform init
+    - tofu init
       -backend-config="address=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}"
       -backend-config="username=gitlab-ci-token"
       -backend-config="password=${CI_JOB_TOKEN}"
-    - terraform plan -detailed-exitcode -out=drift.cache || EXIT=$?
-    - if [ "${EXIT:-0}" = "2" ]; then echo "DRIFT DETECTED"; terraform show -no-color drift.cache; exit 1; fi
+    - tofu plan -detailed-exitcode -out=drift.cache || EXIT=$?
+    - if [ "${EXIT:-0}" = "2" ]; then echo "DRIFT DETECTED"; tofu show -no-color drift.cache; exit 1; fi
   after_script: *sops_teardown
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $DRIFT_CHECK == "true"

@@ -252,7 +252,7 @@ flowchart TB
       FRAUD["Fraud screening"]
     end
     subgraph BACK["Platform services"]
-      IAC["Ansible / Terraform / Packer<br/>+ GitLab CI"]
+      IAC["Ansible / OpenTofu / Packer<br/>+ GitLab CI"]
       OBS["Prometheus / Grafana / Loki"]
       ABUSE["Abuse detection<br/>+ response"]
     end
@@ -270,7 +270,7 @@ flowchart TB
 
 Two design rules that matter enormously:
 
-**The panel's database is the source of truth for customer resources — not Proxmox, and not Terraform.** IP allocations, VNI assignments, plan limits, and bandwidth counters live there. Proxmox is the executor. Reconcile continuously and alert on divergence.
+**The panel's database is the source of truth for customer resources — not Proxmox, and not OpenTofu.** IP allocations, VNI assignments, plan limits, and bandwidth counters live there. Proxmox is the executor. Reconcile continuously and alert on divergence.
 
 **Never expose the Proxmox UI or API to customers.** The panel holds a scoped API token; customers get a console proxy. One panel compromise should not become every customer's compromise.
 
@@ -301,7 +301,7 @@ Minimum viable structure for a one-person operation:
 
 The lightweight version that actually gets followed:
 
-- All infrastructure change through Git and merge request. The `terraform plan` diff is the review.
+- All infrastructure change through Git and merge request. The `tofu plan` diff is the review.
 - **Apply is a manual gate**, never automatic on merge. A Friday-night merge should not change production.
 - Maintenance windows published in advance; emergency changes documented after the fact.
 - A rollback path identified *before* applying. If there isn't one, that is the finding.

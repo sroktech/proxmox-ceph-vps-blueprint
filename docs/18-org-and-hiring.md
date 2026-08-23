@@ -87,7 +87,7 @@ Item 2 and 3 are the same person, usually. Choose them and set it up in month 1.
 
 **Responsibilities:** Proxmox and Ceph operations · capacity planning execution · on-call rotation with you (this is the point) · IaC maintenance · upgrades · failure testing · monitoring.
 
-**Profile:** hands-on Linux and virtualisation, Ceph experience strongly preferred (it is hard to learn on a production cluster with paying customers), comfortable with Ansible/Terraform, calm in incidents.
+**Profile:** hands-on Linux and virtualisation, Ceph experience strongly preferred (it is hard to learn on a production cluster with paying customers), comfortable with Ansible/OpenTofu, calm in incidents.
 
 **This is your hardest and most important hire.** Pay for real Ceph experience. The cost of learning Ceph on your production cluster is measured in customer trust.
 

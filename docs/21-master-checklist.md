@@ -157,12 +157,12 @@ Phase 3 and Phase 4 technical detail lives in Phase 3 and 4 (docs 05-11); this c
 
 - [ ] Ansible: `--check --diff` clean; second run reports `changed=0`
 - [ ] **[BLOCKER]** Node rebuild from Git alone tested and timed
-- [ ] Terraform plan shows zero changes against the live cluster
+- [ ] OpenTofu plan shows zero changes against the live cluster
 - [ ] Provider version pinned exactly; lock file committed
 - [ ] Remote state with locking and versioning; backed up
 - [ ] `prevent_destroy` on storage and pool resources
 - [ ] Nightly drift detection alerting
-- [ ] **[BLOCKER]** No customer VM resource anywhere in Terraform
+- [ ] **[BLOCKER]** No customer VM resource anywhere in OpenTofu
 - [ ] OS templates built by CI, validated, published, manifest in Git
 - [ ] **[BLOCKER]** Two clones of one template have different machine-id and SSH host keys
 - [ ] Build-time key absent from templates (automated CI check)

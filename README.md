@@ -2,7 +2,7 @@
 
 Everything needed to build and operate a Proxmox VE + Ceph VPS hosting provider: business roadmap, infrastructure implementation guide, working IaC scaffolds, operations runbooks, and a financial model.
 
-**21 documents · working Ansible/Packer/Terraform/CI scaffolds · 10-sheet financial model with 536 live formulas.**
+**22 documents · working Ansible/Packer/OpenTofu/CI scaffolds · 10-sheet financial model with 536 live formulas.**
 
 ---
 
@@ -27,10 +27,10 @@ The cause is structural: roughly $4,400/month of fixed costs (two transits, cros
 ## Repository layout
 
 ```text
-├── docs/                 21 documents, read in numbered order
+├── docs/                 22 documents, read in numbered order
 ├── ansible/              Host configuration: roles, inventory, playbooks
 ├── packer/               Ubuntu 24.04, Debian 13, Rocky 10 templates
-├── terraform/            Platform-level resources (NOT customer VMs)
+├── tofu/                 OpenTofu: platform-level resources (NOT customer VMs)
 ├── ci/                   GitLab pipeline + validation scripts
 ├── mermaid_init.py       Mermaid initialization directive utility
 ├── VPS-Financial-Model.xlsx
@@ -77,7 +77,7 @@ The script is idempotent, so running it multiple times does not modify already-c
 | 06 | `06-phase3-cluster-build.md`        | PVE install, Ansible automation, cluster creation, Corosync                     |
 | 07 | `07-phase3-ceph-and-sdn.md`         | Ceph deployment, EVPN SDN, tenant isolation                                     |
 | 08 | `08-phase3-failure-testing.md`      | T1–T16 failure tests with expected behaviour and success criteria               |
-| 09 | `09-phase4-images-and-iac.md`       | Packer, image CI/CD, Terraform design, GitOps and secrets                       |
+| 09 | `09-phase4-images-and-iac.md`       | Packer, image CI/CD, OpenTofu design, GitOps and secrets                       |
 | 10 | `10-phase3-4-build-order.md`        | Week-by-week roadmap, milestones, critical path                                 |
 | 11 | `11-phase3-4-readiness.md`          | Production readiness + go-live checklists                                       |
 
@@ -100,6 +100,7 @@ The script is idempotent, so running it multiple times does not modify already-c
 | 19 | `19-financial-model.md`     | How to use the workbook, and what it revealed                   |
 | 20 | `20-timeline.md`            | 30-day, 90-day, 6-month, 12-month roadmaps                      |
 | 21 | `21-master-checklist.md`    | Complete progress tracking, zero → production                   |
+| 22 | `22-platform-expansion-roadmap.md` | Single-node → multi-node: web/DB/K3s templates, object storage, migration path |
 
 ---
 
@@ -138,7 +139,7 @@ Ten things that are either existential or effectively irreversible:
 
 **1. Cluster, Ceph, and SDN bootstrap are not fully automated.** Ansible converges host configuration well and orchestrates one-shot distributed bootstraps badly. `pvecm create` and `pveceph init` are not idempotent and are destructive if run wrongly. Playbooks prepare prerequisites and gate the destructive commands behind `allow_*_bootstrap` variables defaulting to false.
 
-**2. Customer VMs are not in Terraform.** State locking would serialise provisioning, plans would grow unusable, and a misdirected destroy could queue deletion of every customer VM. The control panel calls the Proxmox API directly. Boundary test: *would a customer's action ever change this resource?* If yes, it is not Terraform's.
+**2. Customer VMs are not in OpenTofu.** State locking would serialise provisioning, plans would grow unusable, and a misdirected destroy could queue deletion of every customer VM. The control panel calls the Proxmox API directly. Boundary test: *would a customer's action ever change this resource?* If yes, it is not OpenTofu's.
 
 **3. A 3-node Ceph cluster tolerates a node loss but cannot self-heal.** With `size=3` and failure domain `host`, there is no fourth host to rebuild the third replica onto. Do not advertise self-healing storage or four-nines availability on three nodes. Order node 4 at 55% raw utilisation.
 
@@ -151,7 +152,7 @@ grep -rn "REPLACE" . --include="*.yml" --include="*.yaml" --include="*.hcl" \
   --include="*.cfg" --include="user-data" --include="preseed.cfg" --include="ks.cfg"
 ```
 
-Fill in: SSH keys (`ansible/inventories/prod/group_vars/all.yml`), age public keys (`.sops.yaml`), PVE endpoint (`packer/common.pkrvars.hcl`, `terraform/envs/prod/terraform.tfvars`), Packer build key and password hashes, and your real IP allocations (`docs/05-phase3-cluster-architecture.md` §1.7).
+Fill in: SSH keys (`ansible/inventories/prod/group_vars/all.yml`), age public keys (`.sops.yaml`), PVE endpoint (`packer/common.pkrvars.hcl`, `tofu/envs/prod/tofu.tfvars`), Packer build key and password hashes, and your real IP allocations (`docs/05-phase3-cluster-architecture.md` §1.7).
 
 Confirm ISO URLs and checksums still resolve — distributions move minor versions.
 

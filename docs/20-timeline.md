@@ -88,7 +88,7 @@ Cluster built, tested to destruction, images automated, platform provisioning en
 |---|---|
 | 9 | Monitoring stack outside the cluster. PBS on separate hardware. **First verified restore with checksum** |
 | 9 | Packer templates: Ubuntu, Debian, Rocky. Boot-test each |
-| 10 | Image CI/CD pipeline. Terraform platform modules. GitOps with manual apply gates |
+| 10 | Image CI/CD pipeline. OpenTofu platform modules. GitOps with manual apply gates |
 | 10 | **Test the blackhole community with both transit providers** |
 | 11 | Control plane: install the billing platform, wire provisioning, console proxy, rDNS self-service |
 | 11 | Abuse and fraud: port 25 block, egress filters, outbound anomaly detection with automated rate-limiting, fraud screening, `abuse@` registered in the RIR object |

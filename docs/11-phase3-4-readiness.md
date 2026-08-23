@@ -103,12 +103,12 @@ Every item needs a name and a date, not just a tick. Items marked **[BLOCKER]** 
 
 - [ ] `ansible-playbook site.yml --check --diff` clean; second real run `changed=0`
 - [ ] **[BLOCKER]** Node rebuild from Git alone tested and timed
-- [ ] `terraform plan` shows zero changes against live cluster
+- [ ] `tofu plan` shows zero changes against live cluster
 - [ ] Provider version pinned exactly; lock file committed
 - [ ] Remote state with locking and versioning; backed up
 - [ ] `prevent_destroy` on storage and pool resources
 - [ ] Nightly drift detection alerting
-- [ ] **[BLOCKER]** No customer VM resource anywhere in Terraform
+- [ ] **[BLOCKER]** No customer VM resource anywhere in OpenTofu
 - [ ] Three OS templates built by CI, validated, published, manifest in Git
 - [ ] Monthly image rebuild scheduled; rollback drill performed
 - [ ] Template validation suite catches a deliberately broken image
@@ -119,7 +119,7 @@ Every item needs a name and a date, not just a tick. Items marked **[BLOCKER]** 
 - [ ] SSH: keys only, no password auth, verified
 - [ ] TOTP required for all PVE UI logins
 - [ ] Datacenter firewall enabled, default-deny inbound
-- [ ] Valid TLS certificate on the PVE API; `insecure = false` in Terraform
+- [ ] Valid TLS certificate on the PVE API; `insecure = false` in OpenTofu
 - [ ] **[BLOCKER]** Panel uses a scoped API token, never `root@pam`; verified it cannot exceed its scope
 - [ ] API tokens have expiry dates; expiry monitored and alerting
 - [ ] `gitleaks` clean across full repository history

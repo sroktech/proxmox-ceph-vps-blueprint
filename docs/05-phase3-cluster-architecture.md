@@ -48,7 +48,7 @@ flowchart TB
     subgraph SVC["Out-of-cluster services"]
       PBS["Proxmox Backup Server<br/>separate hardware"]
       MON2["Monitoring VM<br/>Prometheus Grafana Loki"]
-      GL["GitLab runner<br/>Packer / Terraform / Ansible"]
+      GL["GitLab runner<br/>Packer / OpenTofu / Ansible"]
     end
 
     TRANSIT --> SW1

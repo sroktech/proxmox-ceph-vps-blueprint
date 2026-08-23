@@ -1,7 +1,8 @@
 terraform {
-  # GitLab-managed Terraform state gives locking and versioning for free.
+  # GitLab-managed state gives locking and versioning for free, and works the
+  # same way under OpenTofu's "http" backend as it did under Terraform's.
   # Configure at init time:
-  #   terraform init \
+  #   tofu init \
   #     -backend-config="address=${GL_API}/projects/${PROJ}/terraform/state/prod" \
   #     -backend-config="lock_address=.../prod/lock" \
   #     -backend-config="unlock_address=.../prod/lock" \

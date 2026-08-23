@@ -1,5 +1,5 @@
 # Storage definitions are platform config: few, slow-changing, shared.
-# Exactly the profile Terraform is good at.
+# Exactly the profile OpenTofu is good at.
 
 resource "proxmox_virtual_environment_file" "snippets" {
   for_each     = var.snippets
@@ -15,6 +15,6 @@ resource "proxmox_virtual_environment_file" "snippets" {
 
 # NOTE: RBD/PBS storage resources may not be covered by every provider version.
 # Verify before relying on them:
-#   terraform providers schema -json | jq -r '.provider_schemas[].resource_schemas | keys[]'
+#   tofu providers schema -json | jq -r '.provider_schemas[].resource_schemas | keys[]'
 # If a resource is missing, manage that storage via Ansible (pvesh) and remove
-# it from Terraform rather than fighting the provider.
+# it from OpenTofu rather than fighting the provider.

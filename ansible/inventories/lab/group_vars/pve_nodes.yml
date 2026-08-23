@@ -1,0 +1,35 @@
+---
+pve_cluster_name: pvps-lab
+# No PVE/Ceph subscription in a lab: leave the enterprise-repo tasks disabled
+# so the roles skip them and the nodes stay on the default no-subscription
+# repos that a fresh PVE install already has configured.
+pve_enterprise_repo: false
+pve_suite: trixie          # match whatever Debian base your nested PVE install uses
+
+pve_base_packages:
+  - chrony
+  - curl
+  - ethtool
+  - htop
+  - jq
+  - mtr-tiny
+  - smartmontools
+  - sysstat
+  - tcpdump
+  - unattended-upgrades
+  - vim
+
+pve_sysctl:
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv4.conf.all.log_martians: 1
+  net.ipv6.conf.all.accept_redirects: 0
+  net.ipv6.conf.all.accept_ra: 0
+  kernel.dmesg_restrict: 1
+  kernel.kptr_restrict: 2
+  fs.protected_hardlinks: 1
+  fs.protected_symlinks: 1
+  net.netfilter.nf_conntrack_max: 262144
+  vm.swappiness: 10

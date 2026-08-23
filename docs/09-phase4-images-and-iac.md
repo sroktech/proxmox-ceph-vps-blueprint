@@ -217,7 +217,7 @@ Full file is in `ci/.gitlab-ci.yml` at the repo root. Structure:
 lint  →  build  →  validate  →  publish  →  prune
 ```
 
-- **lint** — `packer fmt -check`, `packer validate`, `ansible-lint`, `terraform validate`, `tflint`
+- **lint** — `packer fmt -check`, `packer validate`, `ansible-lint`, `tofu validate`, `tflint`
 - **build** — `packer build` into a **staging** template name, one job per OS, parallel
 - **validate** — clone the staging template into a throwaway VM, boot it, run an automated test suite, destroy it
 - **publish** — rename/retag the staging template to its final name, update the manifest
@@ -277,40 +277,40 @@ Step 4 is deliberate. Automated tests catch functional breakage; a human catches
 
 ---
 
-# Step 23 — Terraform Design
+# Step 23 — OpenTofu Design
 
-## The core decision: what Terraform should and should not own
+## The core decision: what OpenTofu should and should not own
 
-### Why cluster resources belong in Terraform
+### Why cluster resources belong in OpenTofu
 
 Storage definitions, pools, roles, users, API tokens, and SDN zones are:
 
 - **Few** — dozens, not thousands
 - **Slow-changing** — weeks between changes
 - **Shared** — a mistake affects everyone, so review matters
-- **Reviewable** — a `terraform plan` diff in a merge request is a genuinely useful artifact
+- **Reviewable** — a `tofu plan` diff in a merge request is a genuinely useful artifact
 
-Terraform's model — declarative desired state, plan before apply, one shared state file — fits this exactly.
+OpenTofu's model — declarative desired state, plan before apply, one shared state file — fits this exactly.
 
-### Why customer VMs must NOT be in Terraform
+### Why customer VMs must NOT be in OpenTofu
 
 This is the most important architectural point in Phase 4, and getting it wrong is very hard to undo.
 
-1. **State file contention.** Terraform locks the entire state for every apply. Two customers ordering simultaneously means one waits. At any volume, provisioning serialises and your signup flow times out.
-2. **Wrong latency profile.** A customer expects their VPS in 60 seconds. `terraform init` + `plan` + `apply` on a state file with thousands of resources takes minutes and grows linearly.
-3. **State file size and blast radius.** Ten thousand VMs in one state file is an unreviewable, slow, fragile object. And a corrupted or lost state file means Terraform no longer knows about your customers' VMs.
-4. **Catastrophic failure modes.** A malformed change, a provider upgrade with a schema change, or a `terraform destroy` in the wrong directory can queue destruction of every customer VM. There is no undo. This risk alone should settle the argument.
-5. **Lifecycle mismatch.** Customer VMs are created, resized, rebuilt, and destroyed by *customer action*, asynchronously, thousands of times. That is an imperative, event-driven workflow. Terraform models convergence to a declared state, and there is no sensible place to declare "customer 4471 wants 4 GB now."
-6. **Drift is normal, not an error.** A customer resizing their disk through your panel is correct behaviour. Terraform would see it as drift and revert it.
+1. **State file contention.** OpenTofu locks the entire state for every apply. Two customers ordering simultaneously means one waits. At any volume, provisioning serialises and your signup flow times out.
+2. **Wrong latency profile.** A customer expects their VPS in 60 seconds. `tofu init` + `plan` + `apply` on a state file with thousands of resources takes minutes and grows linearly.
+3. **State file size and blast radius.** Ten thousand VMs in one state file is an unreviewable, slow, fragile object. And a corrupted or lost state file means OpenTofu no longer knows about your customers' VMs.
+4. **Catastrophic failure modes.** A malformed change, a provider upgrade with a schema change, or a `tofu destroy` in the wrong directory can queue destruction of every customer VM. There is no undo. This risk alone should settle the argument.
+5. **Lifecycle mismatch.** Customer VMs are created, resized, rebuilt, and destroyed by *customer action*, asynchronously, thousands of times. That is an imperative, event-driven workflow. OpenTofu models convergence to a declared state, and there is no sensible place to declare "customer 4471 wants 4 GB now."
+6. **Drift is normal, not an error.** A customer resizing their disk through your panel is correct behaviour. OpenTofu would see it as drift and revert it.
 
-**The rule: Terraform manages the platform. Your control panel calls the Proxmox API directly for customer VMs.** The panel owns a database of what it has provisioned; that database is the source of truth for customer resources, not Terraform state.
+**The rule: OpenTofu manages the platform. Your control panel calls the Proxmox API directly for customer VMs.** The panel owns a database of what it has provisioned; that database is the source of truth for customer resources, not OpenTofu state.
 
-A useful boundary test: *would a customer's action ever change this resource?* If yes, it does not belong in Terraform.
+A useful boundary test: *would a customer's action ever change this resource?* If yes, it does not belong in OpenTofu.
 
 ## Repository structure
 
 ```
-terraform/
+tofu/
 ├── modules/
 │   ├── pve_storage/          # storage definitions (RBD, PBS, ISO, snippets)
 │   ├── pve_pool/             # resource pools
@@ -318,11 +318,11 @@ terraform/
 │   └── pve_sdn/              # zones, vnets, subnets
 └── envs/
     └── prod/
-        ├── backend.tf        # remote state (GitLab-managed Terraform state)
+        ├── backend.tf        # remote state (GitLab-managed state; works the same under OpenTofu)
         ├── providers.tf
         ├── main.tf
         ├── variables.tf
-        ├── terraform.tfvars
+        ├── tofu.tfvars
         └── outputs.tf
 ```
 
@@ -332,8 +332,8 @@ Environment structure: start with `prod` only. Add `staging` when you have a sec
 
 ```hcl
 # envs/prod/providers.tf
-terraform {
-  required_version = ">= 1.9"
+terraform {  # block name unchanged by OpenTofu, for HCL compatibility
+  required_version = ">= 1.8"  # OpenTofu CLI version
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
@@ -356,42 +356,42 @@ provider "proxmox" {
 Two notes on this provider:
 
 - **Pin the version exactly and read the changelog before bumping.** `bpg/proxmox` is actively developed and has had breaking schema changes between minor versions.
-- **Resource coverage varies.** Storage, pools, users, roles, ACLs, and files are well supported. SDN resource support has been added more recently and coverage may be incomplete for EVPN specifics. Before writing SDN Terraform, verify what actually exists:
+- **Resource coverage varies.** Storage, pools, users, roles, ACLs, and files are well supported. SDN resource support has been added more recently and coverage may be incomplete for EVPN specifics. Before writing SDN configuration in OpenTofu, verify what actually exists:
 
 ```bash
-terraform providers schema -json | jq -r '.provider_schemas[].resource_schemas | keys[]' | grep -i sdn
+tofu providers schema -json | jq -r '.provider_schemas[].resource_schemas | keys[]' | grep -i sdn
 ```
 
-If the resources you need are missing or immature, manage SDN through Ansible (`pvesh` calls) or the UI instead, and revisit later. Do not fight a provider — the goal is working infrastructure, not Terraform purity.
+If the resources you need are missing or immature, manage SDN through Ansible (`pvesh` calls) or the UI instead, and revisit later. Do not fight a provider — the goal is working infrastructure, not OpenTofu purity.
 
-- `insecure = false` requires a valid certificate on the PVE API. Use your internal CA or Let's Encrypt via the PVE ACME integration. Running with `insecure = true` in production means your Terraform runner accepts any certificate, which defeats the point of TLS on your control path.
+- `insecure = false` requires a valid certificate on the PVE API. Use your internal CA or Let's Encrypt via the PVE ACME integration. Running with `insecure = true` in production means your OpenTofu runner accepts any certificate, which defeats the point of TLS on your control path.
 
-Working examples for storage, pools, users, tokens, and SDN are in `terraform/` at the repo root.
+Working examples for storage, pools, users, tokens, and SDN are in `tofu/` at the repo root.
 
 ## Risks
 
 | Risk | Consequence | Mitigation |
 |---|---|---|
-| Customer VMs in Terraform state | Possible mass destruction; provisioning serialises | Panel calls the API directly; hard rule |
-| State file lost or corrupted | Terraform no longer knows your platform config | Remote state with versioning and locking; back it up |
+| Customer VMs in OpenTofu state | Possible mass destruction; provisioning serialises | Panel calls the API directly; hard rule |
+| State file lost or corrupted | OpenTofu no longer knows your platform config | Remote state with versioning and locking; back it up |
 | Unpinned provider version | Silent breaking change on next CI run | Exact pin, `.terraform.lock.hcl` committed |
-| `terraform apply` without review | Unreviewed platform change | CI: plan on MR, apply only on protected branch, manual gate |
+| `tofu apply` without review | Unreviewed platform change | CI: plan on MR, apply only on protected branch, manual gate |
 | API token with root privileges | Full cluster compromise from a leaked CI variable | Scoped role, minimum privileges, short expiry, rotation |
 | `insecure = true` | MITM on the control path | Valid cert via PVE ACME or internal CA |
 
 ## Validation checklist — Step 23
 
-- [ ] `terraform fmt -check -recursive` clean
-- [ ] `terraform validate` passes
+- [ ] `tofu fmt -check -recursive` clean
+- [ ] `tofu validate` passes
 - [ ] `tflint` passes
-- [ ] `terraform plan` on a clean checkout shows **no changes** against the live cluster
+- [ ] `tofu plan` on a clean checkout shows **no changes** against the live cluster
 - [ ] Remote state configured with locking; concurrent apply confirmed to block
 - [ ] `.terraform.lock.hcl` committed
 - [ ] Provider version pinned exactly
 - [ ] API token is scoped, not root; verified it cannot delete a VM
 - [ ] No customer VM resource exists anywhere in the configuration
 - [ ] Destroy-protection: `prevent_destroy` lifecycle on storage and pool resources
-- [ ] Full disaster test: `terraform apply` reproduces platform config on a rebuilt cluster
+- [ ] Full disaster test: `tofu apply` reproduces platform config on a rebuilt cluster
 
 ---
 
@@ -407,7 +407,7 @@ infrastructure/
 ├── docs/                     # this guide, runbooks, address plan, test results
 ├── ansible/
 ├── packer/
-├── terraform/
+├── tofu/
 ├── ci/
 │   ├── .gitlab-ci.yml
 │   └── scripts/
@@ -431,8 +431,8 @@ main (protected)
 Rules:
 - `main` is protected: no direct push, MR required, one approval, CI must pass.
 - Branches live hours to days, not weeks.
-- `terraform plan` and `ansible --check --diff` run on every MR and post their output as an MR comment. Reviewing the plan is the review.
-- `terraform apply` and real Ansible runs happen **only** from `main`, and only behind a **manual** job. Automated apply-on-merge is a bad idea for infrastructure that customers depend on.
+- `tofu plan` and `ansible --check --diff` run on every MR and post their output as an MR comment. Reviewing the plan is the review.
+- `tofu apply` and real Ansible runs happen **only** from `main`, and only behind a **manual** job. Automated apply-on-merge is a bad idea for infrastructure that customers depend on.
 - Tag releases of the platform config: `v2026.08.1`. When something breaks, you can identify exactly what changed.
 
 ## Secret management
@@ -465,7 +465,7 @@ creation_rules:
       age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p,
       age1CIKEYHERE...
     encrypted_regex: '^(.*password.*|.*secret.*|.*token.*|.*key.*)$'
-  - path_regex: terraform/.*\.sops\.ya?ml$
+  - path_regex: tofu/.*\.sops\.ya?ml$
     age: >-
       age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p,
       age1CIKEYHERE...
@@ -494,7 +494,7 @@ flowchart LR
     D --> E["Merge to main"]
     E --> F["CI decrypts with<br/>CI age key"]
     F --> G["Injected as env var<br/>never written to disk"]
-    G --> H["Ansible / Terraform /<br/>Packer consumes"]
+    G --> H["Ansible / OpenTofu /<br/>Packer consumes"]
 ```
 
 In CI:
@@ -503,8 +503,8 @@ before_script:
   - echo "$SOPS_AGE_KEY" > /tmp/age.key
   - export SOPS_AGE_KEY_FILE=/tmp/age.key
 script:
-  - export PVE_TOKEN=$(sops -d --extract '["pve_api_token"]' terraform/secrets.sops.yaml)
-  - terraform plan -var="pve_api_token=$PVE_TOKEN"
+  - export PVE_TOKEN=$(sops -d --extract '["pve_api_token"]' tofu/secrets.sops.yaml)
+  - tofu plan -var="pve_api_token=$PVE_TOKEN"
 after_script:
   - shred -u /tmp/age.key
 ```
@@ -529,19 +529,19 @@ Run Vault outside the Proxmox cluster with its own storage backend and a documen
 flowchart TB
     A["Branch + commit"] --> B["Push, open MR"]
     B --> C["CI: lint<br/>fmt, validate, tflint, ansible-lint"]
-    C --> D["CI: plan<br/>terraform plan, ansible --check --diff"]
+    C --> D["CI: plan<br/>tofu plan, ansible --check --diff"]
     D --> E["Plan output posted<br/>as MR comment"]
     E --> F["Human review<br/>reads the plan"]
     F --> G["Merge to main"]
     G --> H["Manual gate<br/>operator clicks apply"]
-    H --> I["CI: apply<br/>terraform apply, ansible-playbook"]
+    H --> I["CI: apply<br/>tofu apply, ansible-playbook"]
     I --> J["CI: verify<br/>post-apply health checks"]
     J --> K["Tag release<br/>v2026.08.1"]
 ```
 
 The **manual gate** at step H is not bureaucracy. Automated apply-on-merge means a merge at 23:00 on a Friday changes production. Keep a human deciding when.
 
-The **verify** stage at J runs a health check script after apply — `pvecm status`, `ceph -s`, `terraform plan` showing no drift — and fails loudly if the apply left things wrong.
+The **verify** stage at J runs a health check script after apply — `pvecm status`, `ceph -s`, `tofu plan` showing no drift — and fails loudly if the apply left things wrong.
 
 ## Risks
 
@@ -552,14 +552,14 @@ The **verify** stage at J runs a health check script after apply — `pvecm stat
 | Automated apply on merge | Unintended production change | Manual gate on apply jobs |
 | CI runner compromised | Full infrastructure access | Dedicated runner, no shared runners for infra, minimal scope tokens, short TTLs |
 | Vault sealed during an incident | Cannot deploy or provision when you most need to | Tested unseal drill; SOPS as the no-dependency fallback |
-| No drift detection | Config in Git no longer matches reality | Nightly scheduled `terraform plan` that alerts on non-empty diff |
+| No drift detection | Config in Git no longer matches reality | Nightly scheduled `tofu plan` that alerts on non-empty diff |
 
 ## Validation checklist — Step 24
 
 - [ ] `gitleaks detect` clean across full history
 - [ ] `.gitignore` covers `*.decrypted.*`, `*.tfstate*`, `.terraform/`, age keys
 - [ ] `main` branch protected, MR + approval + passing CI required
-- [ ] `terraform plan` posts to MR comments
+- [ ] `tofu plan` posts to MR comments
 - [ ] Apply jobs are manual, not automatic
 - [ ] SOPS decryption works in CI; age key is a masked and protected variable
 - [ ] Age key rotation performed once as a drill

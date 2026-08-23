@@ -14,7 +14,7 @@ creation_rules:
       age1REPLACE_WITH_CI_PUBLIC_KEY
     encrypted_regex: '^(.*password.*|.*secret.*|.*token.*|.*key.*|.*passphrase.*)$'
 
-  - path_regex: terraform/.*\.sops\.ya?ml$
+  - path_regex: tofu/.*\.sops\.ya?ml$
     age: >-
       age1REPLACE_WITH_OPERATOR_PUBLIC_KEY,
       age1REPLACE_WITH_CI_PUBLIC_KEY

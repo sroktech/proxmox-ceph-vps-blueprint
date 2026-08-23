@@ -11,7 +11,7 @@ Assumes one or two engineers working on this. Multiply durations by roughly 1.5 
 | **PVE** | Proxmox VE operation |
 | **CEPH** | Ceph architecture and operations |
 | **ANS** | Ansible role authoring |
-| **TF** | Terraform, HCL, modules, state |
+| **TF** | OpenTofu, HCL, modules, state |
 | **PKR** | Packer, cloud-init, autoinstall/preseed/kickstart |
 | **CI** | GitLab CI/CD, containers, scripting |
 | **SEC** | Secrets management, hardening |
@@ -50,8 +50,8 @@ Assumes one or two engineers working on this. Multiply durations by roughly 1.5 
 | 26 | **Step 22**: GitLab CI pipeline: lint/build/validate/publish/prune | 3 d | 23 | CI, PKR | Green pipeline |
 | 27 | Image validation test suite | 1.5 d | 26 | CI | Automated image gate |
 | 28 | Monthly schedule + rollback drill | 0.5 d | 27 | CI | Scheduled pipeline, rollback proven |
-| 29 | **Step 23**: Terraform modules (storage, pool, users, tokens) | 2.5 d | 15, 8 | TF | Modules with clean plan |
-| 30 | Terraform SDN module (verify provider coverage first) | 1.5 d | 17, 29 | TF, NET | SDN in code, or documented fallback |
+| 29 | **Step 23**: OpenTofu modules (storage, pool, users, tokens) | 2.5 d | 15, 8 | TF | Modules with clean plan |
+| 30 | OpenTofu SDN module (verify provider coverage first) | 1.5 d | 17, 29 | TF, NET | SDN in code, or documented fallback |
 | 31 | Remote state, locking, `prevent_destroy`, drift detection | 1 d | 29 | TF, CI | Nightly drift alert |
 | 32 | **Step 24**: GitOps: branch protection, MR plan comments, manual gates | 1.5 d | 26, 31 | CI, SEC | Full deploy workflow |
 | 33 | Scoped API tokens for panel and CI; least-privilege roles | 1 d | 29 | SEC, PVE | Tokens verified unable to over-reach |
@@ -96,9 +96,9 @@ Tasks 23–25. Three Packer templates, each boot-tested.
 Tasks 26–28. Pipeline, automated validation, monthly schedule, rollback drill.
 **Exit criteria:** pipeline green; a deliberately broken image is caught by the validate stage; rollback proven.
 
-### Week 9 — Terraform
+### Week 9 — OpenTofu
 Tasks 29–31. Platform modules, remote state, drift detection.
-**Exit criteria:** `terraform plan` shows zero changes against the live cluster; nightly drift job alerting.
+**Exit criteria:** `tofu plan` shows zero changes against the live cluster; nightly drift job alerting.
 
 ### Week 10 — GitOps and DR
 Tasks 32–35. Full workflow, scoped tokens, node rebuild drill, readiness review.
@@ -118,7 +118,7 @@ Tasks 32–35. Full workflow, scoped tokens, node rebuild drill, readiness revie
 | **M6** | Recoverable | 5 | A VM restored from PBS with verified data integrity |
 | **M7** | Failure-tested | 6 | T1–T16 complete; **T5 fencing confirmed working** |
 | **M8** | Images reproducible | 8 | CI builds, validates, publishes; rollback proven |
-| **M9** | Platform in code | 9 | `terraform plan` clean; drift detection live |
+| **M9** | Platform in code | 9 | `tofu plan` clean; drift detection live |
 | **M10** | Production ready | 10 | Node rebuilt from Git; both checklists signed |
 
 M7 is the hard gate. Do not provision a paying customer before it.
@@ -136,7 +136,7 @@ flowchart LR
     T15 --> T17["SDN EVPN"] --> T18["Isolation hardening"]
     T18 --> T21["Failure testing"] --> T22["Fix findings"] --> T35["Readiness review"]
     T15 --> T23["Packer"] --> T26["Image CI"] --> T35
-    T15 --> T29["Terraform"] --> T32["GitOps"] --> T35
+    T15 --> T29["OpenTofu"] --> T32["GitOps"] --> T35
 ```
 
 **The critical path is: network → PVE → Ansible → cluster → Ceph → SDN → failure testing → readiness.** Roughly 8 weeks of strictly sequential work. Everything else hangs off it.
@@ -148,7 +148,7 @@ These do not block the critical path and can run alongside it:
 - Task 8 (Git repo + SOPS) — from day one, no dependencies
 - Task 19 (monitoring stack) — needs only network access to nodes, start in week 2
 - Tasks 23–28 (Packer + image CI) — needs only a working Ceph pool, start week 4
-- Tasks 29–31 (Terraform) — needs only a working cluster, start week 4
+- Tasks 29–31 (OpenTofu) — needs only a working cluster, start week 4
 - All documentation and runbooks — continuously
 
 ### The two things that will actually delay you

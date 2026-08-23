@@ -8,7 +8,7 @@ secrets.plain.*
 *.agekey
 keys.txt
 
-# Terraform
+# OpenTofu (still uses .terraform/ and *.tfstate for drop-in compatibility)
 .terraform/
 *.tfstate
 *.tfstate.*

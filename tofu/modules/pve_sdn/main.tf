@@ -1,12 +1,12 @@
-# SDN via Terraform: VERIFY PROVIDER COVERAGE FIRST.
+# SDN via OpenTofu: VERIFY PROVIDER COVERAGE FIRST.
 #
-#   terraform providers schema -json \
+#   tofu providers schema -json \
 #     | jq -r '.provider_schemas[].resource_schemas | keys[]' | grep -i sdn
 #
 # EVPN-specific attributes (exit nodes, VRF VXLAN ID, controller peers) have
 # historically lagged behind the API. If the resources you need are missing or
 # immature, manage SDN through Ansible/pvesh and keep this module empty.
-# Working infrastructure beats Terraform purity.
+# Working infrastructure beats OpenTofu purity.
 #
 # Reference shape, adjust to your provider version's actual schema:
 #
@@ -28,5 +28,5 @@
 #
 # IMPORTANT: per-tenant vnets are created and destroyed by CUSTOMER action
 # (signup and cancellation). By the rule in docs/05, that makes them the
-# panel's responsibility, not Terraform's. Terraform should own the ZONE and
+# panel's responsibility, not OpenTofu's. OpenTofu should own the ZONE and
 # CONTROLLER only. This module intentionally does not manage per-tenant vnets.

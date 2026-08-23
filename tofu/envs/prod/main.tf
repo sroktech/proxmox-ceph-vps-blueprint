@@ -82,17 +82,17 @@ module "api_access" {
 
   users = {
     "panel@pve" = {
-      comment         = "Control panel service account. Managed by Terraform."
+      comment         = "Control panel service account. Managed by OpenTofu."
       enabled         = true
       expiration_date = null
     }
     "ci@pve" = {
-      comment         = "GitLab CI service account. Managed by Terraform."
+      comment         = "GitLab CI service account. Managed by OpenTofu."
       enabled         = true
       expiration_date = null
     }
     "packer@pve" = {
-      comment         = "Packer image builder. Managed by Terraform."
+      comment         = "Packer image builder. Managed by OpenTofu."
       enabled         = true
       expiration_date = null
     }
